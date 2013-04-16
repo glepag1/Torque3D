@@ -578,6 +578,12 @@ public:
    F32 cameraMaxFov;                ///< Max vertical FOV allowed in degrees.
    /// @}
 
+   /// @name Camera Misc
+   /// @{
+   bool cameraCanBank;              ///< If the derrived class supports it, allow the camera to bank
+   bool mountedImagesBank;          ///< Do mounted images bank along with the camera?
+   /// @}
+
    /// @name Data initialized on preload
    /// @{
 
@@ -1265,6 +1271,9 @@ public:
    ///
    /// @return Damage factor, between 0.0 - 1.0
    F32  getDamageValue();
+ 
+   /// Returns the datablock.maxDamage value  
+   F32 getMaxDamage(); 
 
    /// Returns the rate at which the object regenerates damage
    F32  getRepairRate() { return mRepairRate; }
@@ -1615,7 +1624,7 @@ public:
 
    /// Returns the eye transform of this shape without including mounted images, IE the eyes of a player
    /// @param   mat   Eye transform (out)
-   virtual void getEyeBaseTransform(MatrixF* mat);
+   virtual void getEyeBaseTransform(MatrixF* mat, bool includeBank);
 
    /// The retraction transform is the muzzle transform in world space.
    ///
@@ -1668,7 +1677,7 @@ public:
    virtual void getRenderMuzzleVector(U32 imageSlot,VectorF* vec);
    virtual void getRenderMuzzlePoint(U32 imageSlot,Point3F* pos);
    virtual void getRenderEyeTransform(MatrixF* mat);
-   virtual void getRenderEyeBaseTransform(MatrixF* mat);
+   virtual void getRenderEyeBaseTransform(MatrixF* mat, bool includeBank);
    /// @}
 
 

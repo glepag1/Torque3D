@@ -171,6 +171,8 @@ ShapeBaseData::ShapeBaseData()
    cameraDefaultFov( 75.0f ),
    cameraMinFov( 5.0f ),
    cameraMaxFov( 120.f ),
+   cameraCanBank( false ),
+   mountedImagesBank( false ),
    isInvincible( false ),
    renderWhenDestroyed( true ),
    debris( NULL ),
@@ -544,6 +546,10 @@ void ShapeBaseData::initPersistFields()
          "The minimum camera vertical FOV allowed in degrees." );
       addField( "cameraMaxFov", TypeF32, Offset(cameraMaxFov, ShapeBaseData),
          "The maximum camera vertical FOV allowed in degrees." );
+      addField( "cameraCanBank", TypeBool, Offset(cameraCanBank, ShapeBaseData),
+         "If the derrived class supports it, allow the camera to bank." );
+      addField( "mountedImagesBank", TypeBool, Offset(mountedImagesBank, ShapeBaseData),
+         "Do mounted images bank along with the camera?" );
       addField( "firstPersonOnly", TypeBool, Offset(firstPersonOnly, ShapeBaseData),
          "Flag controlling whether the view from this object is first person "
          "only." );
@@ -689,6 +695,8 @@ void ShapeBaseData::packData(BitStream* stream)
       stream->write(cameraMinFov);
    if(stream->writeFlag(cameraMaxFov != gShapeBaseDataProto.cameraMaxFov))
       stream->write(cameraMaxFov);
+   stream->writeFlag(cameraCanBank);
+   stream->writeFlag(mountedImagesBank);
    stream->writeString( debrisShapeName );
 
    stream->writeFlag(observeThroughObject);
@@ -787,6 +795,9 @@ void ShapeBaseData::unpackData(BitStream* stream)
       stream->read(&cameraMaxFov);
    else
       cameraMaxFov = gShapeBaseDataProto.cameraMaxFov;
+
+   cameraCanBank = stream->readFlag();
+   mountedImagesBank = stream->readFlag();
 
    debrisShapeName = stream->readSTString();
 
@@ -1632,6 +1643,11 @@ F32 ShapeBase::getDamageValue()
    return mDamage / mDataBlock->maxDamage;
 }
 
+F32 ShapeBase::getMaxDamage()
+{
+   return mDataBlock->maxDamage;
+}
+
 void ShapeBase::updateDamageLevel()
 {
    if (mDamageThread) {
@@ -1867,10 +1883,10 @@ Point3F ShapeBase::getAIRepairPoint()
 
 void ShapeBase::getEyeTransform(MatrixF* mat)
 {
-   getEyeBaseTransform(mat);
+   getEyeBaseTransform(mat, true);
 }
 
-void ShapeBase::getEyeBaseTransform(MatrixF* mat)
+void ShapeBase::getEyeBaseTransform(MatrixF* mat, bool includeBank)
 {
    // Returns eye to world space transform
    S32 eyeNode = mDataBlock->eyeNode;
@@ -1882,10 +1898,10 @@ void ShapeBase::getEyeBaseTransform(MatrixF* mat)
 
 void ShapeBase::getRenderEyeTransform(MatrixF* mat)
 {
-   getRenderEyeBaseTransform(mat);
+   getRenderEyeBaseTransform(mat, true);
 }
 
-void ShapeBase::getRenderEyeBaseTransform(MatrixF* mat)
+void ShapeBase::getRenderEyeBaseTransform(MatrixF* mat, bool includeBank)
 {
    // Returns eye to world space transform
    S32 eyeNode = mDataBlock->eyeNode;
@@ -2577,7 +2593,7 @@ void ShapeBase::_prepRenderImage(   SceneRenderState *state,
       return;
 
    // We don't need to render if all the meshes are forced hidden.
-   if ( mMeshHidden.testAll() )   
+   if ( mMeshHidden.getSize() > 0 && mMeshHidden.testAll() )   
       return;
       
    // If we're rendering shadows don't render the mounted
@@ -4534,6 +4550,13 @@ DefineEngineMethod( ShapeBase, getDamagePercent, F32, (),,
 {
    return object->getDamageValue();
 }
+  
+DefineEngineMethod(ShapeBase, getMaxDamage, F32, (),,   
+   "Get the object's maxDamage level.\n"  
+   "@return datablock.maxDamage\n")    
+{    
+   return object->getMaxDamage();    
+}  
 
 DefineEngineMethod( ShapeBase, setDamageState, bool, ( const char* state ),,
    "@brief Set the object's damage state.\n\n"
@@ -5115,8 +5138,8 @@ DefineEngineMethod( ShapeBase, changeMaterial, void, ( const char* mapTo, Materi
 
    newMat->mMapTo = mapTo;
 
-   // Map the material in the in the matmgr
-   MATMGR->mapMaterial( mapTo, newMat->mMapTo );
+   // Map the material by name in the matmgr
+   MATMGR->mapMaterial( mapTo, newMat->getName() );
 
    // Replace instances with the new material being traded in. For ShapeBase
    // class we have to update the server/client objects separately so both
